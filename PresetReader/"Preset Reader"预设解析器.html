@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>酒馆预设可视化解析器</title>
+  <style>
+    /* ── Google Fonts: Courier Prime for terminal feel ── */
+    @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Noto+Serif+SC:wght@300;400;600&display=swap');
+
+    :root {
+      /* ── Healing Sage 色板 ── */
+      --bg:             #F4F7F4;
+      --surface:        #FFFFFF;
+      --surface-soft:   #EEF3EE;
+      --surface-warm:   #F0F4EF;
+
+      --heading:        #2C3B2B;
+      --label:          #3E4A3D;
+      --body:           #4A5A49;
+      --muted:          #7A9178;
+
+      --accent:         #7A9B76;
+      --accent-hover:   #5E7D5A;
+      --accent-light:   #C8DBC6;
+      --accent-border:  #B0CCAD;
+      --accent-faint:   rgba(122,155,118,0.08);
+
+      --border:         #D4E0D2;
+      --border-strong:  #B8CCBA;
+      --border-dashed:  #8FAF8C;
+
+      --success-bg:     rgba(100,170,90,0.15);
+      --success-border: rgba(100,170,90,0.4);
+      --success-text:   #3A7A35;
+
+      --danger:         #9B4A4A;
+      --danger-bg:      #FDF0F0;
+      --danger-border:  #E8C0C0;
+
+      --warning:        #7A6030;
+      --warning-bg:     #FDF8EC;
+
+      /* 档案/终端装饰色 */
+      --stamp-red:      #B94A4A;
+      --stamp-green:    #4A7A4A;
+      --tape-yellow:    #E8D870;
+
+      --radius-sm: 2px;
+      --radius-md: 4px;
+      --radius-lg: 6px;
+
+      --shadow-card:    0 1px 3px rgba(60,80,60,0.10), 0 4px 12px rgba(60,80,60,0.06);
+      --shadow-subtle:  0 1px 2px rgba(60,80,60,0.08);
+      --shadow-inset:   inset 0 1px 3px rgba(60,80,60,0.08);
+
+      --font-main: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+      --font-mono: 'Courier Prime', 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--bg); }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      /* 旧纸纹理 */
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 28px,
+          rgba(122,155,118,0.06) 28px,
+          rgba(122,155,118,0.06) 29px
+        );
+      color: var(--body);
+      font-family: var(--font-main);
+      font-weight: 300;
+      line-height: 1.6;
+    }
+
+    button, input { font-family: var(--font-mono); }
+
+
+
+    code {
+      font-family: var(--font-mono);
+      color: var(--accent-hover);
+      background: var(--surface-soft);
+      border: 1px solid var(--accent-border);
+      border-radius: var(--radius-sm);
+      padding: 1px 5px;
+      font-size: 0.87em;
+    }
+
+    .container {
+      width: min(880px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 36px 0 56px;
+    }
+
+    /* ══════════════════════════════
+       Hero — 档案封面风格
+    ══════════════════════════════ */
+    .hero {
+      position: relative;
+      padding: 24px 28px 28px;
+      margin-bottom: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-top: 4px solid var(--accent);
+      box-shadow: var(--shadow-card);
+    }
+
+    /* 档案编号角标 */
+    .hero::after {
+      content: 'FILE #ST-JSON-PARSER';
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .eyebrow::before {
+      content: '▶';
+      color: var(--accent);
+      font-size: 9px;
+    }
+
+    .hero h1 {
+      margin: 0 0 4px;
+      color: var(--heading);
+      font-family: var(--font-mono);
+      font-size: clamp(22px, 4vw, 36px);
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    /* 下划线装饰 */
+    .hero-rule {
+      display: block;
+      height: 2px;
+      width: 60px;
+      background: var(--accent);
+      margin: 12px 0 14px;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 700px;
+      color: var(--body);
+      font-family: var(--font-main);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── Upload Panel ── */
+    .upload-panel {
+      margin-top: 20px;
+      border: 1px dashed var(--border-dashed);
+      border-radius: var(--radius-md);
+      background: var(--surface-warm);
+      padding: 16px 18px;
+      position: relative;
+    }
+
+    .upload-panel::before {
+      content: '[ 档案导入 ]';
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      position: absolute;
+      top: -8px;
+      left: 14px;
+      background: var(--surface-warm);
+      padding: 0 6px;
+    }
+
+    .file-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      max-width: 480px;
+      color: var(--body);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 7px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: var(--font-mono);
+    }
+
+    input[type="file"]::file-selector-button {
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: #fff;
+      padding: 6px 12px;
+      margin-right: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+      transition: background 0.15s;
+    }
+
+    input[type="file"]::file-selector-button:hover {
+      background: var(--accent-hover);
+    }
+
+    .hint {
+      margin-top: 10px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.7;
+    }
+
+    /* ══════════════════════════════
+       Buttons
+    ══════════════════════════════ */
+    .btn {
+      border: 1px solid var(--accent-border);
+      background: var(--surface);
+      color: var(--accent-hover);
+      border-radius: var(--radius-sm);
+      padding: 7px 14px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--accent-faint);
+      border-color: var(--accent);
+    }
+
+    .btn.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn.primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn.small  { padding: 4px 9px;  font-size: 11px; }
+    .btn.compact{ padding: 6px 12px; font-size: 12px; }
+
+    .btn.danger {
+      border-color: var(--danger-border);
+      color: var(--danger);
+      background: transparent;
+    }
+
+    .btn.danger:hover { background: var(--danger-bg); }
+
+    .btn.warning {
+      border-color: #d4b87a;
+      color: var(--warning);
+      background: transparent;
+    }
+
+    .btn.warning:hover { background: var(--warning-bg); }
+
+    /* ══════════════════════════════
+       Stats — 档案数据卡
+    ══════════════════════════════ */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      box-shadow: var(--shadow-subtle);
+      position: relative;
+    }
+
+    .stat .num {
+      color: var(--heading);
+      font-family: var(--font-mono);
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .stat .label {
+      margin-top: 4px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* ══════════════════════════════
+       Toolbar
+    ══════════════════════════════ */
+    .toolbar {
+      margin: 16px 0 14px;
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .toolbar-search { min-width: 0; }
+
+    .toolbar-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .toolbar-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .toolbar-checks {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 14px;
+    }
+
+    .search {
+      width: 100%;
+      height: 44px;
+      border: 1px solid var(--border-strong);
+      border-left: 3px solid var(--accent);
+      background: var(--surface);
+      color: var(--heading);
+      border-radius: var(--radius-sm);
+      padding: 0 14px;
+      font-size: 14px;
+      font-family: var(--font-mono);
+      box-shadow: var(--shadow-inset);
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    .search::placeholder { color: var(--muted); }
+
+    .search:focus {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-inset), 0 0 0 2px rgba(122,155,118,0.15);
+    }
+
+    .toolbar-buttons .btn {
+      height: 36px;
+      padding: 0 14px;
+    }
+
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--label);
+      white-space: nowrap;
+      user-select: none;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .checkbox-label input,
+    .select-checkbox,
+    .select-all-checkbox { accent-color: var(--accent); }
+
+    .checkbox-label input {
+      width: 14px; height: 14px;
+      margin: 0; cursor: pointer;
+    }
+
+    /* ══════════════════════════════
+       Bulk Bar
+    ══════════════════════════════ */
+    .bulk-bar {
+      display: none;
+      margin: 0 0 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--accent-border);
+      background: var(--surface-soft);
+      border-left: 3px solid var(--accent);
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .bulk-bar.show { display: flex; flex-wrap: wrap; }
+
+    .bulk-info {
+      color: var(--label);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .bulk-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* ══════════════════════════════
+       Message
+    ══════════════════════════════ */
+    .message {
+      display: none;
+      margin: 12px 0;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      background: var(--surface-soft);
+      color: var(--label);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .message.show { display: block; }
+
+    .message.error {
+      color: var(--danger);
+      border-color: var(--danger-border);
+      border-left-color: var(--danger);
+      background: var(--danger-bg);
+    }
+
+    /* ══════════════════════════════
+       List — 档案条目卡
+    ══════════════════════════════ */
+    .list { display: grid; gap: 6px; }
+
+    .item {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow-subtle);
+      overflow: hidden;
+      transition: box-shadow 0.15s, border-color 0.15s;
+      position: relative;
+    }
+
+    .item:hover {
+      box-shadow: var(--shadow-card);
+      border-color: var(--accent-border);
+    }
+
+    /* 展开时左侧竖线 */
+    .item.open {
+      border-left: 3px solid var(--accent);
+    }
+
+    /* ── item-header: div (避免 button 嵌套 button 非法) ── */
+    .item-header {
+      width: 100%;
+      color: var(--heading);
+      background: var(--surface);
+      padding: 9px 12px;
+      display: grid;
+      grid-template-columns: auto auto 1fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      cursor: pointer;
+      border-bottom: 1px solid transparent;
+      transition: background 0.12s;
+      user-select: none;
+    }
+
+    .item.open .item-header {
+      border-bottom-color: var(--border);
+      background: var(--surface-soft);
+    }
+
+    .select-checkbox {
+      width: 14px; height: 14px;
+      cursor: pointer;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    /* 序号 — 打字机风格 */
+    .index {
+      min-width: 32px;
+      height: 20px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      display: inline-grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+
+    .title {
+      min-width: 0;
+      color: var(--heading);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      letter-spacing: 0.01em;
+    }
+
+    .inline-delete {
+      padding: 3px 8px;
+      font-size: 11px;
+      line-height: 1;
+      height: auto;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--success-text);
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      padding: 1px 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .badge.empty {
+      color: var(--danger);
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+    }
+
+    .length {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── Item Body ── */
+    .item-body {
+      display: none;
+      padding: 12px 14px;
+      background: var(--surface);
+      border-top: 1px dashed var(--border);
+    }
+
+    .item.open .item-body { display: block; }
+
+    .content-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-light);
+      background: var(--surface-soft);
+      color: var(--heading);
+      overflow: auto;
+      max-height: 480px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.9;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      /* 横线纸背景 */
+      background-image: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 30px,
+        rgba(122,155,118,0.08) 30px,
+        rgba(122,155,118,0.08) 31px
+      );
+    }
+
+    .empty-content {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 10px 14px;
+      border: 1px dashed var(--border-strong);
+      background: var(--surface-warm);
+    }
+
+    mark {
+      background: #EAE070;
+      color: var(--heading);
+      padding: 0 2px;
+    }
+
+    /* ══════════════════════════════
+       Footer
+    ══════════════════════════════ */
+    .footer {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+    }
+
+    .footer::before {
+      content: '— ';
+    }
+    .footer::after {
+      content: ' —';
+    }
+
+    /* ══════════════════════════════
+       Responsive
+    ══════════════════════════════ */
+    @media (max-width: 900px) {
+      .toolbar { grid-template-columns: 1fr; gap: 12px; }
+      .toolbar-actions { align-items: flex-start; }
+      .toolbar-buttons, .toolbar-checks { justify-content: flex-start; flex-wrap: wrap; }
+    }
+
+    @media (max-width: 680px) {
+      .container { width: calc(100% - 20px); padding-top: 24px; }
+
+      .hero { padding: 18px 14px 20px; }
+      .hero::after { display: none; }
+      .hero h1 { font-size: 20px; }
+      .hero p  { font-size: 13px; }
+
+      .stats { grid-template-columns: repeat(2, 1fr); }
+
+      /* 小屏隐藏 badge，保留其他列 */
+      .item-header { grid-template-columns: auto auto 1fr auto auto; }
+      .badge { display: none; }
+
+      .toolbar-buttons { gap: 4px; }
+      .toolbar-buttons .btn { padding: 0 10px; font-size: 11px; }
+    }
+
+    @media (max-width: 400px) {
+      .item-header { grid-template-columns: auto 1fr auto auto; }
+      .index { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+
+    <!-- ══ Hero ══ -->
+    <section class="hero">
+      <div class="eyebrow">SillyTavern · Preset Parser · 档案室</div>
+      <h1>酒馆预设可视化解析器</h1>
+      <span class="hero-rule"></span>
+      <p>
+        上传 SillyTavern 预设文件后，自动读取
+        <code>prompts</code> 数组，并按顺序提取每个条目的
+        <code>name</code> 与 <code>content</code>。
+      </p>
+
+      <div class="upload-panel">
+        <div class="file-row">
+          <input id="fileInput" type="file" accept=".json,application/json" />
+          <button class="btn primary" id="loadDemoBtn">加载示例</button>
+          <button class="btn" id="clearBtn">清空</button>
+        </div>
+        <div class="hint">
+          &gt; 解析逻辑：优先读取根对象 <code>prompts</code> 数组；
+          若上传的是数组则直接解析。所有处理均在本地浏览器完成。
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ Stats ══ -->
+    <section class="stats" id="stats" style="display:none;">
+      <div class="stat">
+        <div class="num" id="totalCount">0</div>
+        <div class="label">总条目</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="contentCount">0</div>
+        <div class="label">有 content</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="emptyCount">0</div>
+        <div class="label">无 content</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="visibleCount">0</div>
+        <div class="label">当前显示</div>
+      </div>
+    </section>
+
+    <!-- ══ Toolbar ══ -->
+    <section class="toolbar" id="toolbar" style="display:none;">
+      <div class="toolbar-search">
+        <input class="search" id="searchInput" placeholder="> 搜索 name 或 content ..." />
+      </div>
+
+      <div class="toolbar-actions">
+        <div class="toolbar-buttons">
+          <button class="btn" id="expandAllBtn">全部展开</button>
+          <button class="btn" id="collapseAllBtn">全部收起</button>
+          <button class="btn" id="exportBtn">导出 JSON</button>
+        </div>
+        <div class="toolbar-checks">
+          <label class="checkbox-label">
+            <input type="checkbox" id="selectAllCheckbox" class="select-all-checkbox" />
+            全选显示
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="onlyContentCheckbox" />
+            只看有 content
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ Bulk Bar ══ -->
+    <section class="bulk-bar" id="bulkBar">
+      <div class="bulk-info" id="bulkInfo">已选择 0 个词条</div>
+      <div class="bulk-actions">
+        <button class="btn compact" id="bulkExportMdBtn">导出选中 MD</button>
+        <button class="btn compact danger" id="bulkDeleteBtn">删除选中</button>
+        <button class="btn compact" id="clearSelectionBtn">取消选择</button>
+      </div>
+    </section>
+
+    <div class="message" id="message"></div>
+    <section class="list" id="list"></section>
+
+    <div class="footer">本页面只在浏览器本地解析文件，不会上传到服务器</div>
+  </main>
+
+  <script>
+    const fileInput           = document.getElementById("fileInput");
+    const listEl              = document.getElementById("list");
+    const messageEl           = document.getElementById("message");
+    const toolbarEl           = document.getElementById("toolbar");
+    const statsEl             = document.getElementById("stats");
+    const searchInput         = document.getElementById("searchInput");
+    const onlyContentCheckbox = document.getElementById("onlyContentCheckbox");
+    const selectAllCheckbox   = document.getElementById("selectAllCheckbox");
+    const expandAllBtn        = document.getElementById("expandAllBtn");
+    const collapseAllBtn      = document.getElementById("collapseAllBtn");
+    const exportBtn           = document.getElementById("exportBtn");
+    const clearBtn            = document.getElementById("clearBtn");
+    const loadDemoBtn         = document.getElementById("loadDemoBtn");
+    const bulkBar             = document.getElementById("bulkBar");
+    const bulkInfo            = document.getElementById("bulkInfo");
+    const bulkExportMdBtn     = document.getElementById("bulkExportMdBtn");
+    const bulkDeleteBtn       = document.getElementById("bulkDeleteBtn");
+    const clearSelectionBtn   = document.getElementById("clearSelectionBtn");
+    const totalCountEl        = document.getElementById("totalCount");
+    const contentCountEl      = document.getElementById("contentCount");
+    const emptyCountEl        = document.getElementById("emptyCount");
+    const visibleCountEl      = document.getElementById("visibleCount");
+
+    let extractedItems     = [];
+    let selectedUids       = new Set();
+    let currentVisibleUids = [];
+    let nextUid            = 1;
+    let presetName = "";
+
+    fileInput.addEventListener("change", handleFile);
+    searchInput.addEventListener("input", renderList);
+    onlyContentCheckbox.addEventListener("change", () => {
+      selectAllCheckbox.checked = false;
+      renderList();
+    });
+    selectAllCheckbox.addEventListener("change", () => {
+      if (selectAllCheckbox.checked) {
+        currentVisibleUids.forEach(uid => selectedUids.add(uid));
+      } else {
+        currentVisibleUids.forEach(uid => selectedUids.delete(uid));
+      }
+      renderList();
+    });
+    expandAllBtn.addEventListener("click",  () => setAllOpen(true));
+    collapseAllBtn.addEventListener("click", () => setAllOpen(false));
+    exportBtn.addEventListener("click",      exportExtracted);
+    clearBtn.addEventListener("click",       clearAll);
+    loadDemoBtn.addEventListener("click",    loadDemo);
+    bulkDeleteBtn.addEventListener("click",   bulkDeleteSelected);
+    bulkExportMdBtn.addEventListener("click", bulkExportSelectedMd);
+    clearSelectionBtn.addEventListener("click", () => {
+      selectedUids.clear();
+      selectAllCheckbox.checked = false;
+      renderList();
+    });
+
+    /* ── File ── */
+    async function handleFile(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        parsePreset(JSON.parse(text), file.name);
+      } catch (err) {
+        showMessage("JSON 解析失败：\n" + err.message, true);
+      }
+    }
+
+    function parsePreset(json, fileName = "未命名文件") {
+      let sourceArray = null;
+      if (Array.isArray(json)) {
+        sourceArray = json;
+      } else if (Array.isArray(json.prompts)) {
+        sourceArray = json.prompts;
+      } else {
+        showMessage('没有找到可解析的 prompts 数组。\n\n支持格式：\n1. { "prompts": [ ... ] }\n2. [ ... ]', true);
+        return;
+      }
+// 去掉扩展名，作为预设名
+presetName = fileName.replace(/\.json$/i, "").trim() || "预设";
+      nextUid = 1;
+      selectedUids.clear();
+      currentVisibleUids = [];
+      selectAllCheckbox.checked = false;
+
+      extractedItems = sourceArray.map((item, index) => {
+        const name       = getStringValue(item?.name);
+        const hasContent = Object.prototype.hasOwnProperty.call(item || {}, "content");
+        const content    = hasContent ? getStringValue(item?.content) : "";
+        return {
+          uid: nextUid++,
+          originalIndex: index + 1,
+          name: name || `未命名条目 ${index + 1}`,
+          content, hasContent,
+          contentLength: content.length
+        };
+      });
+
+      showMessage(`[OK] 已解析文件：${fileName}\n     成功提取 ${extractedItems.length} 个条目。`, false);
+      toolbarEl.style.display = "";
+      statsEl.style.display   = "";
+      searchInput.value = "";
+      onlyContentCheckbox.checked = false;
+      updateStats();
+      renderList();
+    }
+
+    function getStringValue(v) {
+      if (v === null || v === undefined) return "";
+      return typeof v === "string" ? v : String(v);
+    }
+
+    /* ── Filter ── */
+    function getFilteredItems() {
+      const keyword     = searchInput.value.trim().toLowerCase();
+      const onlyContent = onlyContentCheckbox.checked;
+      return extractedItems.filter(item => {
+        if (onlyContent && !item.hasContent) return false;
+        if (!keyword) return true;
+        return item.name.toLowerCase().includes(keyword) ||
+               item.content.toLowerCase().includes(keyword);
+      });
+    }
+
+    /* ── Render ── */
+    function renderList() {
+      const keyword  = searchInput.value.trim().toLowerCase();
+      const filtered = getFilteredItems();
+      currentVisibleUids = filtered.map(i => i.uid);
+      visibleCountEl.textContent = filtered.length;
+      updateSelectionUI();
+
+      if (!filtered.length) {
+        listEl.innerHTML = "";
+        if (extractedItems.length) showMessage("没有匹配的条目。", false);
+        return;
+      }
+      if (extractedItems.length) messageEl.classList.remove("error");
+
+      listEl.innerHTML = filtered.map((item, idx) =>
+        createItemHTML(item, idx + 1, keyword)
+      ).join("");
+
+      /* toggle open — 绑定在 div.item-header 上 */
+      document.querySelectorAll(".item-header").forEach(header => {
+        header.addEventListener("click", event => {
+          if (event.target.closest("input[type='checkbox']") ||
+              event.target.closest("button.inline-delete")) return;
+          header.closest(".item").classList.toggle("open");
+        });
+      });
+
+      document.querySelectorAll("[data-select-uid]").forEach(cb => {
+        cb.addEventListener("click",  e => e.stopPropagation());
+        cb.addEventListener("change", e => {
+          const uid = Number(e.target.dataset.selectUid);
+          e.target.checked ? selectedUids.add(uid) : selectedUids.delete(uid);
+          updateSelectionUI();
+        });
+      });
+
+      document.querySelectorAll("[data-copy-uid]").forEach(btn => {
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          const item = extractedItems.find(x => x.uid === Number(btn.dataset.copyUid));
+          if (item) copyText(item.content, btn);
+        });
+      });
+
+      document.querySelectorAll("[data-download-uid]").forEach(btn => {
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          const item = extractedItems.find(x => x.uid === Number(btn.dataset.downloadUid));
+          if (item) downloadText(`${safeFileName(item.name)}.txt`, item.content);
+        });
+      });
+
+      document.querySelectorAll("[data-delete-uid]").forEach(btn => {
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          const uid  = Number(btn.dataset.deleteUid);
+          const item = extractedItems.find(x => x.uid === uid);
+          if (!item) return;
+          if (confirm(`确定删除词条：${item.name}？`)) deleteItem(uid);
+        });
+      });
+    }
+
+    function createItemHTML(item, displayIndex, keyword) {
+      const badgeClass = item.hasContent ? "badge" : "badge empty";
+      const badgeText  = item.hasContent ? "CONTENT" : "NO CONTENT";
+      const checked    = selectedUids.has(item.uid) ? "checked" : "";
+      const contentHTML = item.hasContent
+        ? `<pre>${highlight(escapeHTML(item.content), keyword)}</pre>`
+        : `<div class="empty-content">&gt; 该条目没有 content 字段。</div>`;
+
+      return `
+        <article class="item" data-uid="${item.uid}">
+          <div class="item-header">
+            <input type="checkbox" class="select-checkbox"
+              data-select-uid="${item.uid}" ${checked} aria-label="选择词条" />
+            <span class="index">${String(displayIndex).padStart(2,'0')}</span>
+            <span class="title" title="${escapeHTML(item.name)}">
+              ${highlight(escapeHTML(item.name), keyword)}
+            </span>
+            <button class="btn small danger inline-delete" type="button"
+              data-delete-uid="${item.uid}">删除</button>
+            <span class="${badgeClass}">${badgeText}</span>
+            <span class="length">${item.contentLength} chr</span>
+          </div>
+          <div class="item-body">
+            <div class="content-tools">
+              <button class="btn small" data-copy-uid="${item.uid}">复制 content</button>
+              <button class="btn small" data-download-uid="${item.uid}">下载 TXT</button>
+            </div>
+            ${contentHTML}
+          </div>
+        </article>`;
+    }
+
+    /* ── Delete ── */
+    function deleteItem(uid) {
+      extractedItems = extractedItems.filter(i => i.uid !== uid);
+      selectedUids.delete(uid);
+      updateStats();
+      renderList();
+      if (!extractedItems.length) { listEl.innerHTML = ""; showMessage("所有词条已删除。", false); }
+    }
+
+    function bulkDeleteSelected() {
+      if (!selectedUids.size) { showMessage("请先勾选要删除的词条。", true); return; }
+      if (!confirm(`确定删除选中的 ${selectedUids.size} 个词条？`)) return;
+      extractedItems = extractedItems.filter(i => !selectedUids.has(i.uid));
+      selectedUids.clear();
+      selectAllCheckbox.checked = false;
+      updateStats(); renderList();
+      if (!extractedItems.length) { listEl.innerHTML = ""; showMessage("所有词条已删除。", false); }
+      else showMessage("已删除选中的词条。", false);
+    }
+
+    /* ── Export MD (per file) ── */
+    function bulkExportSelectedMd() {
+      if (!selectedUids.size) { showMessage("请先勾选要导出的词条。", true); return; }
+      extractedItems.filter(i => selectedUids.has(i.uid)).forEach(item => {
+        const md = [`# ${escapeMarkdownTitle(item.name)}`, "", item.content || "", ""].join("\n");
+       downloadText(`${safeFileName(presetName)}-${safeFileName(item.name)}.md`, md);
+      });
+    }
+
+    /* ── Selection UI ── */
+    function updateSelectionUI() {
+      const n = selectedUids.size;
+      bulkBar.classList.toggle("show", n > 0);
+      bulkInfo.textContent = `已选择 ${n} 个词条`;
+      if (!currentVisibleUids.length) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        return;
+      }
+      const vs = currentVisibleUids.filter(uid => selectedUids.has(uid)).length;
+      selectAllCheckbox.checked       = vs === currentVisibleUids.length;
+      selectAllCheckbox.indeterminate = vs > 0 && vs < currentVisibleUids.length;
+    }
+
+    /* ── Stats ── */
+    function updateStats() {
+      const total = extractedItems.length;
+      const withC = extractedItems.filter(x => x.hasContent).length;
+      totalCountEl.textContent   = total;
+      contentCountEl.textContent = withC;
+      emptyCountEl.textContent   = total - withC;
+      visibleCountEl.textContent = total;
+    }
+
+    /* ── Helpers ── */
+    function setAllOpen(open) {
+      document.querySelectorAll(".item").forEach(el => el.classList.toggle("open", open));
+    }
+
+    async function copyText(text, button) {
+      try {
+        await navigator.clipboard.writeText(text);
+        const old = button.textContent;
+        button.textContent = "已复制";
+        setTimeout(() => { button.textContent = old; }, 1000);
+      } catch {
+        showMessage("复制失败：当前浏览器可能不允许剪贴板权限。", true);
+      }
+    }
+
+    function exportExtracted() {
+      if (!extractedItems.length) { showMessage("当前没有可导出的词条。", true); return; }
+      downloadText("extracted-prompts.json",
+        JSON.stringify(extractedItems.map(({ name, content }) => ({ name, content })), null, 2));
+    }
+
+    function downloadText(filename, text) {
+      const a = Object.assign(document.createElement("a"), {
+        href: URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" })),
+        download: filename
+      });
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    function safeFileName(name) {
+      return name.replace(/[\\/:*?"<>|]/g,"_").replace(/\s+/g," ").trim().slice(0,80) || "content";
+    }
+
+    function escapeMarkdownTitle(str) {
+      return String(str).replace(/\\/g,"\\\\").replace(/#/g,"\\#").trim();
+    }
+
+    function escapeHTML(str) {
+      return String(str)
+        .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+    }
+
+    function highlight(html, keyword) {
+      if (!keyword) return html;
+      const safe = escapeHTML(keyword);
+      return html.replace(new RegExp(safe.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"),
+        m => `<mark>${m}</mark>`);
+    }
+
+    function showMessage(text, isError = false) {
+      messageEl.textContent = text;
+      messageEl.classList.add("show");
+      messageEl.classList.toggle("error", isError);
+    }
+
+    function clearAll() {
+      extractedItems = []; selectedUids.clear(); currentVisibleUids = []; nextUid = 1;
+      fileInput.value = ""; searchInput.value = "";
+      onlyContentCheckbox.checked = false;
+      selectAllCheckbox.checked = false; selectAllCheckbox.indeterminate = false;
+      listEl.innerHTML = "";
+      toolbarEl.style.display = "none"; statsEl.style.display = "none";
+      bulkBar.classList.remove("show");
+      messageEl.className = "message"; messageEl.textContent = "";
+    }
+
+    function loadDemo() {
+      parsePreset({
+        prompts: [
+          { name: "🗡️游玩须知", content: "{{//\n## 本预设由...\n记得开全）\n}}" },
+          { name: "🔒CC开",    content: "<|im_start|>system\n示例内容..." },
+          { name: "Persona Description - 玩家描述" }
+        ]
+      }, "示例结构");
+    }
+  </script>
+</body>
+</html>
